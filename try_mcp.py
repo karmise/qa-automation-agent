@@ -7,10 +7,7 @@ from server import mcp
 
 async def main() -> None:
     async with Client(mcp) as client:
-        result = await client.call_tool(
-            "project_info",
-            {"project_path": "/Users/karmise/Documents/Codex/2026-07-29/restful-booker-eee"},
-        )
+        result = await client.call_tool("run_unit_tests", {})
         print(result)
 
 
