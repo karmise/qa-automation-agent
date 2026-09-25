@@ -1,8 +1,6 @@
-from pathlib import Path
-
 import pytest
 
-from settings import load_settings
+from qa_agent.settings import load_settings
 
 
 @pytest.fixture
@@ -23,9 +21,9 @@ def test_environment_overrides_config(config, monkeypatch, tmp_path):
     config.write_text('project_path = "/ignored"\ntimeout_seconds = 12\n')
     monkeypatch.setenv("QA_PROJECT_PATH", str(tmp_path))
     result = load_settings()
-    assert result["project"] == tmp_path
-    assert result["python"] == tmp_path / ".venv/bin/python"
-    assert result["timeout"] == 12
+    assert result.project == tmp_path
+    assert result.python == tmp_path / ".venv/bin/python"
+    assert result.timeout == 12
 
 
 @pytest.mark.parametrize("timeout", ["0", "true", "3601", '"60"'])

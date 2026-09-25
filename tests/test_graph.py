@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import patch
 
-from try_graph import graph
+import pytest
+
+from qa_agent.graph import graph
 
 
 def test_graph_skips_allure_when_tests_pass() -> None:
@@ -16,10 +17,10 @@ def test_graph_skips_allure_when_tests_pass() -> None:
 
     with (
         patch(
-            "try_graph.run_unit_tests",
+            "qa_agent.graph.run_unit_tests",
             return_value=run_result,
         ) as mock_run,
-        patch("try_graph.read_allure_failures") as mock_allure,
+        patch("qa_agent.graph.read_allure_failures") as mock_allure,
     ):
         result = graph.invoke({})
 
@@ -59,11 +60,11 @@ def test_graph_reads_allure_for_the_failed_run() -> None:
 
     with (
         patch(
-            "try_graph.run_unit_tests",
+            "qa_agent.graph.run_unit_tests",
             return_value=run_result,
         ) as mock_run,
         patch(
-            "try_graph.read_allure_failures",
+            "qa_agent.graph.read_allure_failures",
             return_value=allure_result,
         ) as mock_allure,
     ):
@@ -100,10 +101,10 @@ def test_graph_reports_execution_errors_without_reading_allure(
 
     with (
         patch(
-            "try_graph.run_unit_tests",
+            "qa_agent.graph.run_unit_tests",
             return_value=run_result,
         ) as mock_run,
-        patch("try_graph.read_allure_failures") as mock_allure,
+        patch("qa_agent.graph.read_allure_failures") as mock_allure,
     ):
         result = graph.invoke({})
 
@@ -138,9 +139,9 @@ def test_graph_rejects_allure_results_from_another_run() -> None:
     }
 
     with (
-        patch("try_graph.run_unit_tests", return_value=run_result),
+        patch("qa_agent.graph.run_unit_tests", return_value=run_result),
         patch(
-            "try_graph.read_allure_failures",
+            "qa_agent.graph.read_allure_failures",
             return_value=allure_result,
         ),
     ):
@@ -151,14 +152,23 @@ def test_graph_rejects_allure_results_from_another_run() -> None:
     assert "Allure run ID does not match the test run" in result["report"]
     assert "Status: unsuccessful" in result["report"]
 
+
 @pytest.mark.parametrize(
     ("allure_status", "failures", "read_errors", "expected"),
     [
         ("no_results", [], [], "Allure diagnostics are unavailable"),
-        ("partial", [{"name": "test_known_failure", "status": "broken",
-                      "details": {"message": "Fixture setup failed"}}],
-         [{"file": "bad-result.json", "error": "Invalid JSON"}],
-         "Allure diagnostics are incomplete"),
+        (
+            "partial",
+            [
+                {
+                    "name": "test_known_failure",
+                    "status": "broken",
+                    "details": {"message": "Fixture setup failed"},
+                }
+            ],
+            [{"file": "bad-result.json", "error": "Invalid JSON"}],
+            "Allure diagnostics are incomplete",
+        ),
         ("ok", [], [], "The run remains unsuccessful"),
     ],
 )
@@ -168,16 +178,21 @@ def test_graph_preserves_failure_when_allure_is_inconclusive(
     """Never turn absent or incomplete diagnostics into a passing run."""
     run_id = "d" * 32
     run_result = {
-        "status": "unsuccessful", "exit_code": 1, "run_id": run_id,
-        "stdout": "1 failed", "stderr": "Diagnostic warning",
+        "status": "unsuccessful",
+        "exit_code": 1,
+        "run_id": run_id,
+        "stdout": "1 failed",
+        "stderr": "Diagnostic warning",
     }
     allure_result = {
-        "run_id": run_id, "status": allure_status,
-        "failures": failures, "read_errors": read_errors,
+        "run_id": run_id,
+        "status": allure_status,
+        "failures": failures,
+        "read_errors": read_errors,
     }
     with (
-        patch("try_graph.run_unit_tests", return_value=run_result) as runner,
-        patch("try_graph.read_allure_failures", return_value=allure_result) as reader,
+        patch("qa_agent.graph.run_unit_tests", return_value=run_result) as runner,
+        patch("qa_agent.graph.read_allure_failures", return_value=allure_result) as reader,
     ):
         result = graph.invoke({})
 
@@ -199,11 +214,17 @@ def test_graph_preserves_failure_when_allure_is_inconclusive(
 def test_graph_skips_allure_for_other_pytest_errors(exit_code: int) -> None:
     """Preserve pytest errors without treating them as test assertion failures."""
     with (
-        patch("try_graph.run_unit_tests", return_value={
-            "run_id": "e" * 32, "status": "unsuccessful",
-            "exit_code": exit_code, "stdout": "Pytest diagnostic output", "stderr": "",
-        }) as runner,
-        patch("try_graph.read_allure_failures") as reader,
+        patch(
+            "qa_agent.graph.run_unit_tests",
+            return_value={
+                "run_id": "e" * 32,
+                "status": "unsuccessful",
+                "exit_code": exit_code,
+                "stdout": "Pytest diagnostic output",
+                "stderr": "",
+            },
+        ) as runner,
+        patch("qa_agent.graph.read_allure_failures") as reader,
     ):
         result = graph.invoke({})
 
@@ -222,15 +243,22 @@ def test_graph_combines_runner_and_reader_using_the_same_directory() -> None:
     from pathlib import Path
 
     def fake_pytest(command: list, **kwargs) -> subprocess.CompletedProcess:
-        results_dir = Path(next(arg.split("=", 1)[1] for arg in command
-                                if arg.startswith("--alluredir=")))
-        (results_dir / "demo-result.json").write_text(json.dumps({
-            "name": "test_integration_demo", "status": "failed",
-            "statusDetails": {"message": "Expected 5, received 4"},
-        }), encoding="utf-8")
+        results_dir = Path(
+            next(arg.split("=", 1)[1] for arg in command if arg.startswith("--alluredir="))
+        )
+        (results_dir / "demo-result.json").write_text(
+            json.dumps(
+                {
+                    "name": "test_integration_demo",
+                    "status": "failed",
+                    "statusDetails": {"message": "Expected 5, received 4"},
+                }
+            ),
+            encoding="utf-8",
+        )
         return subprocess.CompletedProcess(command, 1, "1 failed", "")
 
-    with patch("server.subprocess.run", side_effect=fake_pytest) as runner:
+    with patch("qa_agent.runner.subprocess.run", side_effect=fake_pytest) as runner:
         result = graph.invoke({})
 
     runner.assert_called_once()

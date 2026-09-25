@@ -8,3 +8,6 @@ runs/
 .env.*
 !.env.example
 agent.toml
+
+.ruff_cache/
+test-results.xml

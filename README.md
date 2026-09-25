@@ -11,7 +11,7 @@ Use Python 3.12. From this repository:
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements-dev.txt
 cp agent.example.toml agent.toml
 ```
 
@@ -53,7 +53,10 @@ stderr, leaving stdout suitable for JSON consumers.
 
 Only `tests/unit` is executed. The tool does not accept arbitrary commands.
 Configuration is read for each run; the runs directory is selected at process
-startup. Keep the configured target consistent with the skill's Restful Booker
+startup. Relative paths inside configuration are resolved against the TOML file
+directory. An explicitly selected missing config file and unknown keys are
+reported as configuration errors. Interpreter symlinks are preserved so that
+virtual environments remain active. Keep the configured target consistent with the skill's Restful Booker
 scope. Changing the project does not automatically change user intent.
 
 ## MCP and the coding agent
@@ -99,7 +102,9 @@ runs/<run_id>/
 
 Low-level runs created before the workflow was added may contain only Allure
 files. Saving an artifact can fail independently of test execution; the workflow
-reports that separately. Artifacts remain local until manually removed.
+reports that separately. Each file is replaced atomically, and temporary files
+are cleaned up on failure. The JSON summary is published last and is the
+canonical record; the text and JSON files are not a two-file transaction. Artifacts remain local until manually removed.
 
 Allure `ok` means files were parsed, not that tests passed. `partial` means the
 failure list may be incomplete. Missing Allure results or an empty failure list
@@ -110,6 +115,8 @@ mixing but does not authenticate files or prove every result was exported.
 
 ```bash
 .venv/bin/python -m pytest tests -v
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
 ```
 
 The suite covers routing, run correlation, reader errors, temporary artifact
@@ -120,8 +127,8 @@ runner/reader test replaces only the external pytest process.
 `.github/workflows/tests.yml` runs the suite on pushes and pull requests and
 uploads JUnit results. It requires no Restful Booker checkout or API credentials.
 The workflow is prepared locally; a successful local run is not evidence of a
-completed GitHub Actions run. `requirements.txt` pins direct dependencies, not
-the full transitive dependency tree.
+completed GitHub Actions run. `requirements.txt` pins runtime dependencies; `requirements-dev.txt` adds
+pytest and Ruff. These pin direct dependencies, not the full transitive tree.
 
 `evals/cases.md` contains separate manual coding-agent behavior evaluations.
 These check tool selection, clarification, duplicate runs, and untrusted test
@@ -131,18 +138,34 @@ output. They are not replaced by Python unit tests.
 
 | File | Responsibility |
 | --- | --- |
-| `settings.py` | Load and validate target configuration. |
-| `server.py` | Implement and expose MCP tools. |
-| `try_graph.py` | Define state, routing, identity checks, and reporting. |
-| `workflow.py` | Execute the graph and save its result. |
-| `qa.py` | Provide execution and read-only review commands. |
+| `qa_agent/settings.py` | Immutable, validated target configuration. |
+| `qa_agent/runner.py` | Bounded subprocess execution and timeout evidence. |
+| `qa_agent/allure.py` | Read and validate run-specific diagnostic files. |
+| `qa_agent/storage.py` | Validate run identity, save atomically, and read summaries. |
+| `qa_agent/graph.py` | State, conditional routing, and evidence identity checks. |
+| `qa_agent/reporting.py` | Pure report rendering without I/O. |
+| `qa_agent/workflow.py` | Execute the graph and persist its result. |
+| `qa_agent/mcp_server.py` | Thin MCP adapter around application services. |
+| `qa_agent/cli.py` | Execution and read-only review commands. |
 | `tests/` | Verify the harness without invoking the real target suite. |
 | `skills/triage-unit-tests/SKILL.md` | Guide the coding agent's tool usage. |
 | `evals/cases.md` | Evaluate the coding agent's decisions manually. |
 
-`try_runner.py`, `try_allure.py`, `try_mcp.py`, and the executable portion of
-`try_graph.py` are retained learning examples. They are not the recommended
-complete entry point. In particular, `try_mcp.py` reads Allure even after success,
-and `try_graph.py` alone does not persist reports or return a CI verdict.
+The root `server.py`, `qa.py`, `workflow.py`, and `settings.py` retain compatible
+entry points/imports. Internal code imports only `qa_agent` modules, never those
+launchers. Dependencies flow from adapters to application services to execution
+and storage; the runner does not import MCP or LangGraph.
+
+`try_runner.py`, `try_allure.py`, `try_mcp.py`, and `try_graph.py` are retained
+learning examples. Importing them never executes tests. `try_allure.py` now
+requires an explicit run ID instead of reading an old hardcoded directory:
+
+```bash
+.venv/bin/python try_allure.py <run_id>
+```
+
+These examples are not the complete entry point. `try_mcp.py` reads Allure even
+after success, and `try_graph.py` alone does not persist reports or return a CI
+verdict. Use `qa.py run` for the complete process.
 
 See `docs/learning-map.md` for the review sequence and mapping to the vacancy.

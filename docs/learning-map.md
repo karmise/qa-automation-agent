@@ -4,7 +4,7 @@
 
 A user identifies the Restful Booker unit suite. The coding agent selects the
 triage skill and calls `triage_unit_tests` once. The MCP tool calls
-`workflow.run_workflow`, which invokes a fresh LangGraph state. The runner loads
+`qa_agent.workflow.run_workflow`, which invokes a fresh LangGraph state. The runner loads
 configuration, allocates a run ID, and invokes the target project's Python.
 
 The conditional edge chooses either reporting or Allure lookup. Failed-test
@@ -13,7 +13,7 @@ rejects unrelated evidence. The report retains pytest's verdict, discloses
 missing evidence, and suggests an investigation step. The workflow saves both
 text and structured evidence and returns them through MCP to the coding agent.
 
-The CLI enters at `workflow.run_workflow` directly and uses exactly the same
+The CLI enters at `qa_agent.workflow.run_workflow` directly and uses exactly the same
 graph. Reviewing a saved report enters neither the graph nor pytest.
 
 ## Concepts to explain in your own words later
@@ -48,3 +48,19 @@ monitoring, automatic defect tickets, and automatic test/code repair are not
 implemented. An actual LLM node can be a later extension once a model runtime
 and cost policy are selected. Do not present this project as evidence of
 production experience with those capabilities.
+
+
+## Refactoring decisions
+
+- Keep CLI and MCP as thin adapters so execution does not depend on either transport.
+- Use one storage module for run-ID validation and saved evidence.
+- Resolve configuration paths consistently and preserve virtualenv interpreter symlinks.
+- Preserve partial timeout output instead of discarding diagnostic evidence.
+- Keep report rendering pure and progress logging separate from protocol/JSON output.
+- Test observable behavior and boundary failures, including real stdio transport.
+- Enforce formatting and lint checks locally and in CI.
+- Retain existing entry-point scripts to avoid breaking installed MCP configuration.
+
+The goal is a small maintainable application, not a general agent framework.
+No dependency injection container, generic plugin registry, or model abstraction
+was added without a present use case.

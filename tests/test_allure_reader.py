@@ -1,10 +1,10 @@
 import json
-
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from server import read_allure_failures
+import pytest
+
+from qa_agent.allure import read_allure_failures
 
 
 def test_read_allure_failures_excludes_passed_tests(tmp_path: Path) -> None:
@@ -15,14 +15,16 @@ def test_read_allure_failures_excludes_passed_tests(tmp_path: Path) -> None:
 
     result_file = results_dir / "passed-result.json"
     result_file.write_text(
-        json.dumps({
-            "name": "test_example",
-            "status": "passed",
-        }),
+        json.dumps(
+            {
+                "name": "test_example",
+                "status": "passed",
+            }
+        ),
         encoding="utf-8",
     )
 
-    with patch("server.RUNS_DIR", tmp_path):
+    with patch("qa_agent.storage.RUNS_DIR", tmp_path):
         result = read_allure_failures(run_id)
 
     assert result["status"] == "ok"
@@ -46,14 +48,16 @@ def test_read_allure_failures_isolates_runs(tmp_path: Path) -> None:
         results_dir = tmp_path / run_id / "allure-results"
         results_dir.mkdir(parents=True)
         (results_dir / "result-result.json").write_text(
-            json.dumps({
-                "name": name,
-                "status": status,
-            }),
+            json.dumps(
+                {
+                    "name": name,
+                    "status": status,
+                }
+            ),
             encoding="utf-8",
         )
 
-    with patch("server.RUNS_DIR", tmp_path):
+    with patch("qa_agent.storage.RUNS_DIR", tmp_path):
         failed_result = read_allure_failures(failed_run_id)
         passed_result = read_allure_failures(passed_run_id)
 
@@ -75,12 +79,13 @@ def test_read_allure_failures_reports_missing_run(tmp_path: Path) -> None:
     """Report missing results instead of treating them as a passing run."""
     run_id = "c" * 32
 
-    with patch("server.RUNS_DIR", tmp_path):
+    with patch("qa_agent.storage.RUNS_DIR", tmp_path):
         result = read_allure_failures(run_id)
 
     assert result["status"] == "no_results"
     assert result["run_id"] == run_id
     assert result["error"] == "No Allure test result files found"
+
 
 @pytest.mark.parametrize("run_id", ["../outside", "A" * 32, "a" * 31, "", None])
 def test_read_allure_failures_rejects_invalid_ids(run_id) -> None:
@@ -89,10 +94,16 @@ def test_read_allure_failures_rejects_invalid_ids(run_id) -> None:
     assert result["status"] == "invalid_run_id"
 
 
-@pytest.mark.parametrize("invalid_content", [
-    "{", "[]", '{"status": []}', '{"status": "failed", "statusDetails": []}',
-    '{}',
-])
+@pytest.mark.parametrize(
+    "invalid_content",
+    [
+        "{",
+        "[]",
+        '{"status": []}',
+        '{"status": "failed", "statusDetails": []}',
+        "{}",
+    ],
+)
 def test_read_allure_failures_keeps_valid_results_when_one_file_is_invalid(
     tmp_path: Path, invalid_content: str
 ) -> None:
@@ -101,11 +112,17 @@ def test_read_allure_failures_keeps_valid_results_when_one_file_is_invalid(
     results_dir = tmp_path / run_id / "allure-results"
     results_dir.mkdir(parents=True)
     (results_dir / "bad-result.json").write_text(invalid_content, encoding="utf-8")
-    (results_dir / "good-result.json").write_text(json.dumps({
-        "name": "test_setup", "status": "broken",
-        "statusDetails": {"message": "Setup failed"},
-    }), encoding="utf-8")
-    with patch("server.RUNS_DIR", tmp_path):
+    (results_dir / "good-result.json").write_text(
+        json.dumps(
+            {
+                "name": "test_setup",
+                "status": "broken",
+                "statusDetails": {"message": "Setup failed"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with patch("qa_agent.storage.RUNS_DIR", tmp_path):
         result = read_allure_failures(run_id)
     assert result["status"] == "partial"
     assert result["files_found"] == 2
