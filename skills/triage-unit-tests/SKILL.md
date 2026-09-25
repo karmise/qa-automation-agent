@@ -25,45 +25,29 @@ If the user requests explanation only, do not run tests.
 
 ## Workflow
 
-1. After confirming the target, call run_unit_tests once.
-   If the tool is unavailable, report that and stop.
+1. Confirm that the configured project is the requested target. If configuration
+   has been changed and the target is uncertain, clarify before execution.
+2. Prefer `triage_unit_tests` once. It executes the LangGraph workflow, performs
+   a conditional Allure lookup, and saves the report. Do not also call
+   `run_unit_tests` or rerun the workflow to obtain the same result.
+3. Summarize the returned `report`, `run_id`, `status`, and evidence. Mention
+   incomplete diagnostics, run-ID mismatches, and artifact save errors.
+4. Treat the report as diagnostic evidence, not as proof of a root cause.
+   Separate observed facts from hypotheses and suggest a next step if needed.
 
-2. Record the returned run_id. Inspect status, exit_code,
-   stdout, and stderr:
-   - passed: summarize the result. No Allure lookup is needed.
-   - timeout: report incomplete execution and stop.
-   - launch_error: report the launch error and stop.
-   - unsuccessful: inspect the exit code and output.
+If `triage_unit_tests` is unavailable before execution, the original low-level
+workflow remains supported: call `run_unit_tests` once; on pytest exit code 1,
+call `read_allure_failures` once with the returned run ID. On success, timeout,
+launch error, or other exit codes, use the runner output without an Allure lookup.
+Verify matching run IDs and disclose missing, partial, or conflicting evidence.
+An empty Allure failure list never overrides failed pytest execution.
 
-3. If the output reports failed tests, call read_allure_failures
-   once with the exact run_id returned by run_unit_tests.
-   Never invent an ID or reuse one from an earlier run.
-   If run_id is missing, report that Allure lookup cannot be linked
-   to this execution and use only the runner output.
+If a call fails or times out after execution may have started, report the
+uncertainty instead of falling back to another execution tool automatically.
 
-4. For collection, configuration, or other execution errors,
-   report the runner output without assuming an assertion failed.
-
-5. Interpret the Allure response:
-   - invalid_run_id: report the rejected ID and stop the lookup.
-   - no_results: report that Allure evidence is unavailable.
-   - partial: report read_errors and mark the analysis as incomplete.
-   - ok: inspect failures and their details.
-   If the tool is unavailable, use the runner output and state
-   the limitation.
-
-6. For responses containing results, verify that the returned
-   run_id matches the requested ID. If it does not, do not use
-   those results as evidence for this run.
-
-7. Compare the Allure failures with the runner output.
-   Report discrepancies. An empty failures list does not
-   override a failed pytest run.
-
-8. Report the run_id, failing test names, and relevant error evidence.
-   Separate observed facts from possible causes.
-   Suggest one next diagnostic step when needed.
-
+For a request to inspect an old run, read its existing results only; do not
+execute a fresh run. The local CLI supports `qa.py show <run_id>` for saved
+workflow reports. Older low-level runs may have only Allure results.
 
 ## Boundaries
 

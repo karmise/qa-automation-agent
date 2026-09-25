@@ -3,10 +3,13 @@ from pathlib import Path
 from mcp.server import MCPServer
 import subprocess
 import json
+import os
 from uuid import uuid4
 
+from settings import load_settings
+
 mcp = MCPServer("QA Automation Agent")
-RUNS_DIR = Path(__file__).resolve().parent / "runs"
+RUNS_DIR = Path(os.environ.get("QA_RUNS_DIR", Path(__file__).resolve().parent / "runs")).expanduser().resolve()
 
 
 @mcp.tool()
@@ -36,29 +39,27 @@ def project_info(project_path: str) -> dict:
 @mcp.tool()
 def run_unit_tests() -> dict:
     """Run the Restful Booker framework unit tests and return their output."""
-    project = Path(
-        "/Users/karmise/Documents/Codex/2026-07-29/restful-booker-platform"
-    )
-    python = project / ".venv" / "bin" / "python"
     run_id = uuid4().hex
     results_dir = RUNS_DIR / run_id / "allure-results"
 
     try:
+        settings = load_settings()
+        project, python, timeout = settings["project"], settings["python"], settings["timeout"]
         results_dir.mkdir(parents=True, exist_ok=False)
         result = subprocess.run(
             [str(python), "-m", "pytest", "tests/unit", "-q", f"--alluredir={results_dir}"],
             cwd=project,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=timeout,
         )
     except subprocess.TimeoutExpired:
         return {
             "status": "timeout",
-            "error": "Unit test execution exceeded 60 seconds",
+            "error": f"Unit test execution exceeded {timeout} seconds",
             "run_id": run_id
         }
-    except OSError as error:
+    except (OSError, ValueError) as error:
         return {
             "status": "launch_error",
             "error": str(error),
@@ -78,7 +79,8 @@ def run_unit_tests() -> dict:
 def read_allure_failures(run_id: str) -> dict:
     """Read failed and broken Allure results for a specific run."""
     if (
-        len(run_id) != 32
+        not isinstance(run_id, str)
+        or len(run_id) != 32
         or any(char not in "0123456789abcdef" for char in run_id)
     ):
         return {
@@ -104,6 +106,12 @@ def read_allure_failures(run_id: str) -> dict:
             result = json.loads(file.read_text(encoding="utf-8"))
             if not isinstance(result, dict):
                 raise ValueError("Expected a JSON object")
+            if result.get("status") not in (
+                "passed", "failed", "broken", "skipped", "unknown"
+            ):
+                raise ValueError("Expected a valid Allure test status")
+            if not isinstance(result.get("statusDetails", {}), dict):
+                raise ValueError("Expected statusDetails to be a JSON object")
         except (OSError, ValueError) as error:
             read_errors.append({
                 "file": file.name,
@@ -128,6 +136,14 @@ def read_allure_failures(run_id: str) -> dict:
         "failures": failures,
         "read_errors": read_errors,
     }
+
+
+@mcp.tool()
+def triage_unit_tests() -> dict:
+    """Run the configured framework unit suite once, diagnose failures, and save a report."""
+    from workflow import run_workflow
+
+    return run_workflow()
 
 
 if __name__ == "__main__":

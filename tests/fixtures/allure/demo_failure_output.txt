@@ -1,0 +1,13 @@
+Result files read: 22
+[
+  {
+    "uuid": "974267db-2740-486a-8157-02b00854e177",
+    "name": "test_agent_failure_demo",
+    "full_name": "tests.unit.test_agent_demo#test_agent_failure_demo",
+    "status": "failed",
+    "details": {
+      "message": "AssertionError: Intentional failure for Allure parsing\nassert (2 + 2) == 5",
+      "trace": "def test_agent_failure_demo() -> None:\n        \"\"\"Produce an intentional failure for Allure parsing.\"\"\"\n>       assert 2 + 2 == 5, \"Intentional failure for Allure parsing\"\nE       AssertionError: Intentional failure for Allure parsing\nE       assert (2 + 2) == 5\n\ntests/unit/test_agent_demo.py:3: AssertionError"
+    }
+  }
+]

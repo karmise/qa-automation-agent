@@ -1,0 +1,10 @@
+.venv/
+.idea/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+runs/
+.env
+.env.*
+!.env.example
+agent.toml

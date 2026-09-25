@@ -1,0 +1,5 @@
+# Copy this file to agent.toml and set the target framework directory.
+project_path = "/absolute/path/to/restful-booker-platform"
+timeout_seconds = 60
+# Optional override; otherwise the project's .venv/bin/python is used.
+# python_path = "/absolute/path/to/python"
