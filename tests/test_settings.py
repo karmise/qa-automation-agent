@@ -31,3 +31,41 @@ def test_invalid_timeout_is_rejected(config, timeout):
     config.write_text(f'project_path = "/target"\ntimeout_seconds = {timeout}\n')
     with pytest.raises(ValueError, match="timeout_seconds"):
         load_settings()
+
+
+def test_defaults_allow_api_and_ui_suites_and_disable_the_model(config):
+    config.write_text('project_path = "/target"\n')
+    result = load_settings()
+    assert result.timeout == 900
+    assert result.env == {}
+    assert result.llm_command == ()
+
+
+def test_environment_table_and_model_command(config):
+    config.write_text(
+        'project_path = "/target"\n'
+        'llm_command = ["claude", "-p", "--tools", ""]\n'
+        "llm_timeout_seconds = 30\n"
+        '[env]\nRBP_BASE_URL = "http://127.0.0.1:8765"\n'
+    )
+    result = load_settings()
+    assert result.env == {"RBP_BASE_URL": "http://127.0.0.1:8765"}
+    assert result.llm_command == ("claude", "-p", "--tools", "")
+    assert result.llm_timeout == 30
+
+
+@pytest.mark.parametrize(
+    ("line", "message"),
+    [
+        ('llm_command = "claude -p"', "llm_command"),
+        ('llm_command = ["", "-p"]', "llm_command"),
+        ("llm_command = []", "llm_command"),
+        ('env = { lower = "x" }', "env"),
+        ("env = { RBP_BASE_URL = 1 }", "env"),
+    ],
+)
+def test_invalid_environment_or_model_command_is_rejected(config, line, message):
+    """A shell string is refused: the command must be an argument list."""
+    config.write_text(f'project_path = "/target"\n{line}\n')
+    with pytest.raises(ValueError, match=message):
+        load_settings()

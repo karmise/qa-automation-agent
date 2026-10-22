@@ -1,5 +1,18 @@
 # Copy this file to agent.toml and set the target framework directory.
 project_path = "/absolute/path/to/restful-booker-platform"
-timeout_seconds = 60
+# API and UI suites call the public sandbox; allow them enough time.
+timeout_seconds = 900
 # Optional override; otherwise the project's .venv/bin/python is used.
 # python_path = "/absolute/path/to/python"
+
+# Optional model review for `qa.py run --llm` and `qa.py triage --llm`.
+# The prompt is sent on stdin; the command must print JSON. Claude Code in print
+# mode with no tools uses your Claude subscription after `claude` + `/login`.
+# llm_command = ["claude", "-p", "--output-format", "json", "--tools", "",
+#                "--no-session-persistence", "--strict-mcp-config"]
+# llm_timeout_seconds = 180
+
+# Optional variables for the target test process.
+# [env]
+# RBP_BASE_URL = "https://automationintesting.online"
+# PLAYWRIGHT_BROWSERS_PATH = "/absolute/path/to/ms-playwright"

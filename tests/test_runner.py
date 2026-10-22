@@ -1,7 +1,47 @@
 import subprocess
 from unittest.mock import patch
 
-from qa_agent.runner import run_unit_tests
+import pytest
+
+from qa_agent import runner, storage
+from qa_agent.runner import run_tests, run_unit_tests
+from qa_agent.settings import Settings
+
+
+@pytest.mark.parametrize(
+    ("suite", "marker", "error"),
+    [("all", None, "Unknown suite: all"), ("api", "not smoke", "Unknown marker: not smoke")],
+)
+def test_only_fixed_suites_and_markers_are_executed(suite, marker, error) -> None:
+    """Agent-supplied values never become arbitrary pytest arguments."""
+    with patch("qa_agent.runner.subprocess.run") as execute:
+        result = run_tests(suite, marker)
+    execute.assert_not_called()
+    assert result["status"] == "launch_error"
+    assert result["error"] == error
+
+
+def test_ui_run_keeps_browser_artifacts_in_its_run_directory(tmp_path, monkeypatch) -> None:
+    settings = Settings(
+        project=tmp_path, python=tmp_path / "python", env={"RBP_BASE_URL": "http://proxy"}
+    )
+    monkeypatch.setattr(runner, "load_settings", lambda: settings)
+    completed = subprocess.CompletedProcess([], 0, "15 passed", "")
+    with patch("qa_agent.runner.subprocess.run", return_value=completed) as execute:
+        result = run_tests("ui", "smoke")
+    command = execute.call_args.args[0]
+    folder = storage.run_directory(result["run_id"])
+    assert command[3:] == [
+        "tests/ui",
+        "-q",
+        f"--alluredir={folder / 'allure-results'}",
+        "-m",
+        "smoke",
+        f"--output={folder / 'playwright'}",
+    ]
+    assert execute.call_args.kwargs["env"]["RBP_BASE_URL"] == "http://proxy"
+    assert result["suite"] == "ui"
+    assert result["marker"] == "smoke"
 
 
 def test_run_unit_tests_reports_timeout() -> None:
