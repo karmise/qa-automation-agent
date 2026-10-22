@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+from builders import write_result
 from mcp import Client, StdioServerParameters
 
 import server
@@ -17,20 +18,38 @@ def decode(response):
     return json.loads(response.content[0].text)
 
 
-def test_mcp_workflow_returns_and_saves_graph_result():
+def test_mcp_lists_triage_and_compatibility_tools():
     async def check():
         async with Client(server.mcp) as client:
-            response = await client.call_tool("triage_unit_tests", {})
+            return {tool.name for tool in (await client.list_tools()).tools}
+
+    assert asyncio.run(check()) >= {
+        "triage_tests",
+        "triage_results",
+        "show_run",
+        "triage_unit_tests",
+        "run_unit_tests",
+        "read_allure_failures",
+        "project_info",
+    }
+
+
+def test_mcp_triage_tests_runs_the_requested_suite_once_and_saves():
+    async def check():
+        async with Client(server.mcp) as client:
+            response = await client.call_tool("triage_tests", {"suite": "api", "marker": "smoke"})
             result = decode(response)
             assert result["status"] == "unsuccessful"
-            assert result["allure_result"]["status"] == "no_results"
+            assert result["evidence"]["status"] == "no_results"
             assert result["artifacts_status"] == "saved"
             assert "diagnostics are unavailable" in result["report"]
 
     with patch(
-        "qa_agent.graph.run_unit_tests",
+        "qa_agent.graph.run_tests",
         return_value={
             "run_id": "c" * 32,
+            "suite": "api",
+            "marker": "smoke",
             "status": "unsuccessful",
             "exit_code": 1,
             "stdout": "1 failed",
@@ -38,7 +57,28 @@ def test_mcp_workflow_returns_and_saves_graph_result():
         },
     ) as runner:
         asyncio.run(check())
-    runner.assert_called_once_with()
+    runner.assert_called_once_with("api", "smoke")
+
+
+def test_mcp_triage_results_is_read_only(results_dir):
+    write_result(
+        results_dir,
+        "test_validation",
+        "failed",
+        statusDetails={"message": "AssertionError: Expected 'X'"},
+    )
+
+    async def check():
+        async with Client(server.mcp) as client:
+            return decode(
+                await client.call_tool("triage_results", {"results_path": str(results_dir)})
+            )
+
+    with patch("qa_agent.runner.subprocess.run") as execute:
+        result = asyncio.run(check())
+    execute.assert_not_called()
+    assert result["triage"]["clusters"][0]["category"] == "product_suspected"
+    assert "llm_review" in result and result["llm_review"] is None
 
 
 def test_stdio_workflow_returns_configuration_error_without_protocol_corruption(tmp_path):

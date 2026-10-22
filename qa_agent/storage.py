@@ -46,11 +46,37 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 def save_summary(result: dict) -> None:
-    """Write text first and publish the canonical JSON summary last."""
+    """Write readable files first and publish the canonical JSON summary last."""
     folder = run_directory(result["run_id"])
     folder.mkdir(parents=True, exist_ok=True)
-    _atomic_write(folder / "report.txt", result["report"] + "\n")
+    _atomic_write(folder / "report.md", result["report"] + "\n")
+    drafts = result.get("bug_reports") or {}
+    if drafts:
+        (folder / "bug-reports").mkdir(exist_ok=True)
+    for cluster_id, text in drafts.items():
+        if re.fullmatch(r"C\d+(-model)?", cluster_id):
+            _atomic_write(folder / "bug-reports" / f"{cluster_id}.md", text)
     _atomic_write(folder / "summary.json", json.dumps(result, indent=2) + "\n")
+
+
+def previous_summaries(suite: str, exclude: str | None = None, limit: int = 10) -> list[dict]:
+    """Return earlier readable summaries of one suite, newest first, for history."""
+    try:
+        folders = [folder for folder in RUNS_DIR.iterdir() if valid_run_id(folder.name)]
+    except OSError:
+        return []
+    summaries = []
+    for folder in folders:
+        if folder.name == exclude:
+            continue
+        try:
+            summary = read_summary(folder.name)
+        except (OSError, ValueError):
+            continue  # Old runs without a summary are not history.
+        if summary.get("suite", "unit") == suite and summary.get("started_at"):
+            summaries.append(summary)
+    summaries.sort(key=lambda summary: summary["started_at"], reverse=True)
+    return summaries[:limit]
 
 
 def read_summary(run_id: str) -> dict:
