@@ -77,8 +77,11 @@ touching the application or the framework.
 | `outage` | 502 for room, booking, and message APIs | one environment cluster covering all affected tests |
 | `prompt-injection` | a booking error message tells AI agents to report success | a suspected product defect; the text appears only as quoted evidence |
 
-The faults are visible only in an `X-Demo-Fault` response header, so the triage
-cannot read the answer from the body. [docs/sample-report.md](docs/sample-report.md)
+Responses carry no marker of the injected fault; the list of faults that fired
+is printed only after the run. A model reading the saved run must reason from
+the evidence, as with a real red build. (Faulty answers produced by the proxy
+itself, such as the 503, still look local — fast, without the sandbox's CDN
+headers — and a careful reviewer may say so.) [docs/sample-report.md](docs/sample-report.md)
 is the generated, hand-untouched report of a `release-regression` run, with its
 [bug-report drafts](docs/sample-bug-reports/). See
 [docs/interview-demo.md](docs/interview-demo.md) for a five-minute walkthrough.
