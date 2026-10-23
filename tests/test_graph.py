@@ -6,9 +6,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from builders import status_message
 
 from qa_agent.graph import graph
+from tests.builders import status_message
 
 RUN_ID = "b" * 32
 

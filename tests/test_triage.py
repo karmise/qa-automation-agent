@@ -1,9 +1,9 @@
 """Rule-based classification, cause grouping, history, and change awareness."""
 
 import pytest
-from builders import evidence, failure, request, response, status_message
 
 from qa_agent.triage import cause_key, classify, describe_history, facts, normalize, triage
+from tests.builders import evidence, failure, request, response, status_message
 
 SANDBOX = "https://sandbox.example"
 
