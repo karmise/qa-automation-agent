@@ -64,7 +64,7 @@ The rules do bookkeeping: evidence, grouping, categories. The model does
 judgment and wording: it reviews each cluster, may disagree with the rules
 (shown as DISAGREES), and rewrites bug-report drafts. Two ways to run it:
 
-- In Claude Code or Codex through MCP: "Why did the API tests fail?" → the
+- In Claude Code through MCP: "Why did the API tests fail?" → the
   agent calls `triage_tests` once and explains the clusters.
 - Headless: `qa.py triage <dir> --llm` sends compact, masked evidence to
   `claude -p` with no tools and validates the JSON answer.
