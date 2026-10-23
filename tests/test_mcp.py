@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from builders import write_result
 from mcp import Client, StdioServerParameters
 
 import server
+from tests.builders import write_result
 
 
 def decode(response):

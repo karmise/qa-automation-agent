@@ -53,7 +53,6 @@ def test_unmatched_requests_are_forwarded_unchanged(proxy):
     response, body = get(f"{proxy}/api/room?x=1")
     assert body["path"] == "/api/room?x=1"
     assert body["contact"]["email"] == "a@b.c"
-    assert response.headers.get("X-Demo-Fault") is None
     cookie = response.headers["Set-Cookie"]
     assert "Secure" not in cookie and "Domain" not in cookie and "HttpOnly" in cookie
 
@@ -62,11 +61,13 @@ def test_status_fault_answers_without_calling_upstream(proxy):
     with pytest.raises(urllib.error.HTTPError) as error:
         urllib.request.urlopen(f"{proxy}/api/report/1", timeout=10)
     assert error.value.code == 503
-    assert error.value.headers["X-Demo-Fault"] == "down"
+    assert error.value.read() == b"<h1>503 Service unavailable</h1>"
 
 
 def test_body_faults_change_only_the_targeted_content(proxy):
-    _, branding = get(f"{proxy}/api/branding")
+    response, branding = get(f"{proxy}/api/branding")
+    # Nothing in the answer reveals that a fault was injected.
+    assert not any("demo" in name.lower() or "fault" in name.lower() for name in response.headers)
     _, booking = get(f"{proxy}/api/booking")
     assert "email" not in branding["contact"]
     assert booking["contact"] == {"email": "a@b.c", "name": "Hotel"}

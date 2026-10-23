@@ -28,7 +28,7 @@ This tool does the repeatable part of that work:
 | Classify with visible rules | environment, suspected product defect, test defect, known defect, known defect fixed, needs review — each with its reasons | no |
 | Add context | Saved run history (new failure vs recurring vs flaky) and Git changes since the previous run (was the test itself changed?) | no |
 | Draft bug reports | Reproducible request, expected, actual, affected tests | no |
-| Review and explain | A coding agent (Claude Code, Codex) reads the clusters through MCP and explains or disagrees; optionally a headless model reviews them | yes |
+| Review and explain | Claude Code reads the clusters through MCP and explains or disagrees; optionally a headless model reviews them | yes |
 
 The rules do the bookkeeping; the model does the judgment and the wording. The
 model never changes the pytest verdict, has no tools in headless mode, and its
@@ -77,23 +77,25 @@ touching the application or the framework.
 | `outage` | 502 for room, booking, and message APIs | one environment cluster covering all affected tests |
 | `prompt-injection` | a booking error message tells AI agents to report success | a suspected product defect; the text appears only as quoted evidence |
 
-The faults are visible only in an `X-Demo-Fault` response header, so the triage
-cannot read the answer from the body. [docs/sample-report.md](docs/sample-report.md)
+Responses carry no marker of the injected fault; the list of faults that fired
+is printed only after the run. A model reading the saved run must reason from
+the evidence, as with a real red build. (Faulty answers produced by the proxy
+itself, such as the 503, still look local — fast, without the sandbox's CDN
+headers — and a careful reviewer may say so.) [docs/sample-report.md](docs/sample-report.md)
 is the generated, hand-untouched report of a `release-regression` run, with its
 [bug-report drafts](docs/sample-bug-reports/). See
 [docs/interview-demo.md](docs/interview-demo.md) for a five-minute walkthrough.
 
-## Using it from a coding agent (MCP)
+## Using it from Claude Code (MCP)
 
-Configure the MCP client to launch `.venv/bin/python` with `server.py`:
+Register the server once for all Claude Code sessions:
 
 ```bash
-claude mcp add qa-automation-agent -- "$PWD/.venv/bin/python" "$PWD/server.py"
+claude mcp add --scope user qa-automation-agent -- "$PWD/.venv/bin/python" "$PWD/server.py"
 ```
 
-For Codex, add the same command to `~/.codex/config.toml` under
-`[mcp_servers.qa-automation-agent]` and raise `tool_timeout_sec` (for example to
-900): API and UI runs take longer than the default tool timeout.
+API and UI runs take a minute or more; if a client reports a tool timeout,
+raise its MCP tool timeout.
 
 | Tool | Executes tests | Purpose |
 | --- | --- | --- |
@@ -221,3 +223,5 @@ cases that unit tests cannot replace.
 - Flaky detection uses saved local history only; it never reruns tests.
 - No automatic ticket filing or code repair: drafts are for a person to verify.
 - `docs/learning-map.md` records what this project does and does not demonstrate.
+
+Built with [Claude Code](https://claude.com/claude-code).

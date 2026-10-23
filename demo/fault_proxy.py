@@ -1,8 +1,9 @@
 """Local proxy that forwards to the Restful Booker sandbox and injects chosen faults.
 
 It lets a demo show different root causes in one run without changing the target
-application or the test framework. Faults are visible only in the X-Demo-Fault
-response header, so the triage cannot "cheat" by reading the response body.
+application or the test framework. Responses carry no marker of the injected
+fault: which faults fired is printed only to the proxy's log, so neither the
+rules nor a model reading the saved pytest output can read the answer.
 
     python -m demo.fault_proxy --scenario release-regression
     RBP_BASE_URL=http://127.0.0.1:8765 python qa.py run --suite api
@@ -138,8 +139,8 @@ def make_handler(upstream: str, faults: list[Fault], log=sys.stderr):
             if fault and fault.kind == "status":
                 status = int(fault.value)  # type: ignore[call-overload]
                 print(f"{self.command} {self.path} -> {status}{label}", file=log, flush=True)
-                headers = [("Content-Type", "text/html"), ("X-Demo-Fault", fault.name)]
-                self._send(status, headers, f"<h1>{status} Service unavailable</h1>".encode())
+                body = f"<h1>{status} Service unavailable</h1>".encode()
+                self._send(status, [("Content-Type", "text/html")], body)
                 return
 
             headers = {
@@ -177,8 +178,6 @@ def make_handler(upstream: str, faults: list[Fault], log=sys.stderr):
                     # The proxy serves plain HTTP on localhost: drop Secure and Domain.
                     value = re.sub(r";\s*(Secure|Domain=[^;]*)", "", value, flags=re.IGNORECASE)
                 out_headers.append((name, value))
-            if fault:
-                out_headers.append(("X-Demo-Fault", fault.name))
             self._send(response.status, out_headers, data)
 
         do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = do_OPTIONS = _proxy

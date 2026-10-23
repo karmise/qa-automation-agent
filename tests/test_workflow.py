@@ -4,11 +4,11 @@ import json
 from unittest.mock import patch
 
 import pytest
-from builders import write_result
 
 from qa_agent import cli as qa
 from qa_agent import storage
 from qa_agent.workflow import run_workflow
+from tests.builders import write_result
 
 
 def state(status="passed", outcome="passed", bug_reports=None):

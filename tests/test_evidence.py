@@ -1,8 +1,7 @@
 """Allure parsing: phases, steps, HTTP logs, known defects, and damaged files."""
 
-from builders import http_log, write_container, write_result
-
 from qa_agent.evidence import read_results
+from tests.builders import http_log, write_container, write_result
 
 
 def test_teardown_failure_is_located_in_its_fixture(results_dir) -> None:
